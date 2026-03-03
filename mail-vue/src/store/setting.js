@@ -11,9 +11,5 @@ export const useSettingStore = defineStore('setting', {
     }),
     actions: {
 
-    },
-    persist: {
-        storage: sessionStorage,
-        pick: ['lang'],
-    },
+    }
 })

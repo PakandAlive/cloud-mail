@@ -5,16 +5,11 @@ import settingService from '../service/setting-service';
 import attService from '../service/att-service';
 import constant from '../const/constant';
 import fileUtils from '../utils/file-utils';
-import { emailConst, isDel, roleConst, settingConst } from '../const/entity-const';
+import { emailConst, isDel, settingConst } from '../const/entity-const';
 import emailUtils from '../utils/email-utils';
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezone from 'dayjs/plugin/timezone';
 import roleService from '../service/role-service';
-import verifyUtils from '../utils/verify-utils';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
+import userService from '../service/user-service';
+import telegramService from '../service/telegram-service';
 
 export async function email(message, env, ctx) {
 
@@ -22,7 +17,6 @@ export async function email(message, env, ctx) {
 
 		const {
 			receive,
-			tgBotToken,
 			tgChatId,
 			tgBotStatus,
 			forwardStatus,
@@ -34,6 +28,7 @@ export async function email(message, env, ctx) {
 		} = await settingService.query({ env });
 
 		if (receive === settingConst.receive.CLOSE) {
+			message.setReject('Service suspended');
 			return;
 		}
 
@@ -52,56 +47,35 @@ export async function email(message, env, ctx) {
 		const account = await accountService.selectByEmailIncludeDel({ env: env }, message.to);
 
 		if (!account && noRecipient === settingConst.noRecipient.CLOSE) {
+			message.setReject('Recipient not found');
 			return;
 		}
 
-		if (account && account.email !== env.admin) {
+		let userRow = {}
 
-			let { banEmail, banEmailType, availDomain } = await roleService.selectByUserId({ env: env }, account.userId);
+		if (account) {
+			 userRow = await userService.selectByIdIncludeDel({ env: env }, account.userId);
+		}
 
-			if(!roleService.hasAvailDomainPerm(availDomain, message.to)) {
+		if (account && userRow.email !== env.admin) {
+
+			let { banEmail, availDomain } = await roleService.selectByUserId({ env: env }, account.userId);
+
+			if (!roleService.hasAvailDomainPerm(availDomain, message.to)) {
+				message.setReject('The recipient is not authorized to use this domain.');
 				return;
 			}
 
-			banEmail = banEmail.split(',').filter(item => item !== '');
-
-			for (const item of banEmail) {
-
-				if (verifyUtils.isDomain(item)) {
-
-					const banDomain = item.toLowerCase();
-					const receiveDomain = emailUtils.getDomain(email.from.address.toLowerCase());
-
-					if (banDomain === receiveDomain) {
-
-						if (banEmailType === roleConst.banEmailType.ALL) return;
-
-						if (banEmailType === roleConst.banEmailType.CONTENT) {
-							email.html = 'The content has been deleted';
-							email.text = 'The content has been deleted';
-							email.attachments = [];
-						}
-
-					}
-
-				} else {
-
-					if (item.toLowerCase() === email.from.address.toLowerCase()) {
-
-						if (banEmailType === roleConst.banEmailType.ALL) return;
-
-						if (banEmailType === roleConst.banEmailType.CONTENT) {
-							email.html = 'The content has been deleted';
-							email.text = 'The content has been deleted';
-							email.attachments = [];
-						}
-
-					}
-
-				}
-
+			if(roleService.isBanEmail(banEmail, email.from.address)) {
+				message.setReject('The recipient is disabled from receiving emails.');
+				return;
 			}
 
+		}
+
+
+		if (!email.to) {
+			email.to = [{ address: message.to, name: emailUtils.getName(message.to)}]
 		}
 
 		const toName = email.to.find(item => item.address === message.to)?.name || '';
@@ -147,8 +121,12 @@ export async function email(message, env, ctx) {
 			attachment.accountId = emailRow.accountId;
 		});
 
-		if (attachments.length > 0 && env.r2) {
-			await attService.addAtt({ env }, attachments);
+		try {
+			if (attachments.length > 0) {
+				await attService.addAtt({ env }, attachments);
+			}
+		} catch (e) {
+			console.error(e);
 		}
 
 		emailRow = await emailService.completeReceive({ env }, account ? emailConst.status.RECEIVE : emailConst.status.NOONE, emailRow.emailId);
@@ -164,42 +142,12 @@ export async function email(message, env, ctx) {
 
 		}
 
-
+		//转发到TG
 		if (tgBotStatus === settingConst.tgBotStatus.OPEN && tgChatId) {
-
-			const tgMessage = `<b>${params.subject}</b>
-
-<b>发件人：</b>${params.name}		&lt;${params.sendEmail}&gt;
-<b>收件人：\u200B</b>${message.to}
-<b>时间：</b>${dayjs.utc(emailRow.createTime).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm')}
-
-${params.text || emailUtils.htmlToText(params.content) || ''}
-`;
-
-			const tgChatIds = tgChatId.split(',');
-
-			await Promise.all(tgChatIds.map(async chatId => {
-				try {
-					const res = await fetch(`https://api.telegram.org/bot${tgBotToken}/sendMessage`, {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({
-							chat_id: chatId,
-							parse_mode: 'HTML',
-							text: tgMessage
-						})
-					});
-					if (!res.ok) {
-						console.error(`转发 Telegram 失败: chatId=${chatId}, 状态码=${res.status}`);
-					}
-				} catch (e) {
-					console.error(`转发 Telegram 失败: chatId=${chatId}`, e);
-				}
-			}));
+			await telegramService.sendEmailToBot({ env }, emailRow)
 		}
 
+		//转发到其他邮箱
 		if (forwardStatus === settingConst.forwardStatus.OPEN && forwardEmail) {
 
 			const emails = forwardEmail.split(',');
@@ -217,7 +165,7 @@ ${params.text || emailUtils.htmlToText(params.content) || ''}
 		}
 
 	} catch (e) {
-
 		console.error('邮件接收异常: ', e);
+		throw e
 	}
 }

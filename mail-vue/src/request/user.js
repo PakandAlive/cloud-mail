@@ -18,8 +18,8 @@ export function userSetType(params) {
 }
 
 
-export function userDelete(userId) {
-    return http.delete('/user/delete', {params:{userId}})
+export function userDelete(userIds) {
+    return http.delete('/user/delete', {params:{userIds: userIds + ''}})
 }
 
 export function userAdd(form) {
@@ -32,4 +32,12 @@ export function userRestSendCount(userId) {
 
 export function userRestore(userId,type) {
     return http.put('/user/restore', {userId,type})
+}
+
+export function userAllAccount(userId, num, size) {
+    return http.get('/user/allAccount', {params:{userId,num,size}})
+}
+
+export function userDeleteAccount(accountId) {
+    return http.delete('/user/deleteAccount', {params:{accountId}})
 }

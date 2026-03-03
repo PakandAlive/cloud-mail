@@ -2,6 +2,7 @@ import app from '../hono/hono';
 import userService from '../service/user-service';
 import result from '../model/result';
 import userContext from '../security/user-context';
+import accountService from '../service/account-service';
 
 app.delete('/user/delete', async (c) => {
 	await userService.physicsDelete(c, c.req.query());
@@ -42,3 +43,15 @@ app.put('/user/restore', async (c) => {
 	await userService.restore(c, await c.req.json());
 	return c.json(result.ok());
 });
+
+app.get('/user/allAccount', async (c) => {
+	const data = await accountService.allAccount(c, c.req.query());
+	return c.json(result.ok(data));
+});
+
+app.delete('/user/deleteAccount', async (c) => {
+	await accountService.physicsDelete(c, c.req.query());
+	return c.json(result.ok());
+});
+
+

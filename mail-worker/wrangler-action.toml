@@ -1,10 +1,13 @@
-name = "cloud-mail"
+name = "${NAME}"
 main = "src/index.js"
-compatibility_date = "2025-07-29"
-keep_vars = true
+compatibility_date = "2025-06-04"
 
 [observability]
 enabled = true
+
+[[routes]]
+pattern = "${CUSTOM_DOMAIN}"
+custom_domain = true
 
 [[d1_databases]]
 binding = "db"
@@ -29,8 +32,16 @@ run_worker_first = true
 crons = ["0 16 * * *"]	#定时任务每天晚上12点执行
 
 
-#[vars]
+[vars]
 #orm_log = false
-#domain = []				#邮件域名可可配置多个 示例: ["example1.com","example2.com"]
-#admin = ""				#管理员的邮箱	示例: admin@example.com
-#jwt_secret = ""			#jwt令牌的密钥,随便填一串字符串
+domain = "${DOMAIN}"				#邮件域名可可配置多个 示例: ["example1.com","example2.com"]
+admin = "${ADMIN}"				#管理员的邮箱	示例: admin@example.com
+jwt_secret = "${JWT_SECRET}"			#jwt令牌的密钥,随便填一串字符串
+
+linuxdo_client_id = "${LINUXDO_CLIENT_ID}"
+linuxdo_client_secret = "${LINUXDO_CLIENT_SECRET}"
+linuxdo_callback_url = "${LINUXDO_CALLBACK_URL}"
+linuxdo_switch = "${LINUXDO_SWITCH}"
+
+[build]
+command = "pnpm --prefix ../mail-vue install && pnpm --prefix ../mail-vue run build"

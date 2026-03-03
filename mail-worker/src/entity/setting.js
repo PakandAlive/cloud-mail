@@ -3,9 +3,9 @@ export const setting = sqliteTable('setting', {
 	register: integer('register').default(0).notNull(),
 	receive: integer('receive').default(0).notNull(),
 	title: text('title').default('').notNull(),
-	manyEmail: integer('many_email').default(1).notNull(),
+	manyEmail: integer('many_email').default(0).notNull(),
 	addEmail: integer('add_email').default(0).notNull(),
-	autoRefreshTime: integer('auto_refresh_time').default(0).notNull(),
+	autoRefresh: integer('auto_refresh').default(0).notNull(),
 	addEmailVerify: integer('add_email_verify').default(1).notNull(),
 	registerVerify: integer('register_verify').default(1).notNull(),
 	regVerifyCount: integer('reg_verify_count').default(1).notNull(),
@@ -33,6 +33,19 @@ export const setting = sqliteTable('setting', {
 	noticeOffset: integer('notice_offset').default(0).notNull(),
 	noticeWidth: integer('notice_width').default(400).notNull(),
 	notice: integer('notice').default(0).notNull(),
-	noRecipient: integer('no_recipient').default(1).notNull()
+	noRecipient: integer('no_recipient').default(1).notNull(),
+	loginDomain: integer('login_domain').default(0).notNull(),
+	bucket: text('bucket').default('').notNull(),
+	region: text('region').default('').notNull(),
+	endpoint: text('endpoint').default('').notNull(),
+	s3AccessKey: text('s3_access_key').default('').notNull(),
+	s3SecretKey: text('s3_secret_key').default('').notNull(),
+	forcePathStyle: integer('force_path_style').default(1).notNull(),
+	customDomain: text('custom_domain').default('').notNull(),
+	tgMsgFrom: text('tg_msg_from').default('only-name').notNull(),
+	tgMsgTo: text('tg_msg_to').default('show').notNull(),
+	tgMsgText: text('tg_msg_text').default('hide').notNull(),
+	minEmailPrefix: integer('min_email_prefix').default(0).notNull(),
+	emailPrefixFilter: text('email_prefix_filter').default('').notNull()
 });
 export default setting

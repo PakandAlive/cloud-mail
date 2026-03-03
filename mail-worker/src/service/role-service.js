@@ -23,7 +23,7 @@ const roleService = {
 
 		let roleRow = await orm(c).select().from(role).where(eq(role.name, name)).get();
 
-		const notEmailIndex = banEmail.findIndex(item => (!verifyUtils.isEmail(item) && !verifyUtils.isDomain(item)))
+		const notEmailIndex = banEmail.findIndex(item => (!verifyUtils.isEmail(item) && !verifyUtils.isDomain(item)) && item !== "*");
 
 		if (notEmailIndex > -1) {
 			throw new BizError(t('notEmail'));
@@ -72,7 +72,7 @@ const roleService = {
 
 		delete params.isDefault
 
-		const notEmailIndex = banEmail.findIndex(item => (!verifyUtils.isEmail(item) && !verifyUtils.isDomain(item)))
+		const notEmailIndex = banEmail.findIndex(item => (!verifyUtils.isEmail(item) && !verifyUtils.isDomain(item)) && item !== "*")
 
 		if (notEmailIndex > -1) {
 			throw new BizError(t('notEmail'));
@@ -116,7 +116,7 @@ const roleService = {
 	},
 
 	roleSelectUse(c) {
-		return orm(c).select({ name: role.name, roleId: role.roleId }).from(role).orderBy(asc(role.sort)).all();
+		return orm(c).select({ name: role.name, roleId: role.roleId, isDefault: role.isDefault }).from(role).orderBy(asc(role.sort)).all();
 	},
 
 	async selectDefaultRole(c) {
@@ -170,6 +170,54 @@ const roleService = {
 		})
 
 		return availIndex > -1
+	},
+
+	selectByName(c, roleName) {
+		return orm(c).select().from(role).where(eq(role.name, roleName)).get();
+	},
+
+	selectByUserIds(c, userIds) {
+
+		if (!userIds && userIds.length === 0) {
+			return [];
+		}
+
+		return orm(c).select({ ...role, userId: user.userId }).from(user).leftJoin(role, eq(role.roleId, user.type)).where(inArray(user.userId, userIds)).all();
+
+	},
+
+	isBanEmail(banEmail, fromEmail) {
+
+		banEmail = banEmail.split(',').filter(item => item !== '');
+
+		if (banEmail.includes('*')) {
+			return true;
+		}
+
+		for (const item of banEmail) {
+
+			if (verifyUtils.isDomain(item)) {
+
+				const banDomain = item.toLowerCase();
+				const receiveDomain = emailUtils.getDomain(fromEmail.toLowerCase());
+
+				if (banDomain === receiveDomain) {
+					return true;
+				}
+
+			} else {
+
+				if (item.toLowerCase() === fromEmail.toLowerCase()) {
+
+					return true;
+
+				}
+
+			}
+
+		}
+
+		return false;
 	}
 };
 

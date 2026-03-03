@@ -11,10 +11,14 @@ import app from '../hono/hono';
 const exclude = [
 	'/login',
 	'/register',
-	'/file',
+	'/oss',
 	'/setting/websiteConfig',
 	'/webhooks',
-	'/init'
+	'/init',
+	'/public/genToken',
+	'/telegram',
+	'/test',
+	'/oauth'
 ];
 
 const requirePerms = [
@@ -24,6 +28,7 @@ const requirePerms = [
 	'/account/delete',
 	'/account/add',
 	'/my/delete',
+	'/analysis/echarts',
 	'/role/add',
 	'/role/list',
 	'/role/delete',
@@ -32,8 +37,10 @@ const requirePerms = [
 	'/role/setDefault',
 	'/allEmail/list',
 	'/allEmail/delete',
-	'/setting/physicsDeleteAll',
+	'/allEmail/batchDelete',
+	'/allEmail/latest',
 	'/setting/setBackground',
+	'/setting/deleteBackground',
 	'/setting/set',
 	'/setting/query',
 	'/user/delete',
@@ -43,6 +50,8 @@ const requirePerms = [
 	'/user/list',
 	'/user/resetSendCount',
 	'/user/add',
+	'/user/deleteAccount',
+	'/user/allAccount',
 	'/regKey/add',
 	'/regKey/list',
 	'/regKey/delete',
@@ -61,18 +70,17 @@ const premKey = {
 	'role:set': ['/role/set','/role/setDefault'],
 	'role:query': ['/role/list', '/role/tree'],
 	'role:delete': ['/role/delete'],
-	'user:query': ['/user/list'],
+	'user:query': ['/user/list','/user/allAccount'],
 	'user:add': ['/user/add'],
 	'user:reset-send': ['/user/resetSendCount'],
 	'user:set-pwd': ['/user/setPwd'],
 	'user:set-status': ['/user/setStatus'],
 	'user:set-type': ['/user/setType'],
-	'user:delete': ['/user/delete'],
-	'all-email:query': ['/allEmail/list'],
-	'all-email:delete': ['/allEmail/delete'],
+	'user:delete': ['/user/delete','/user/deleteAccount'],
+	'all-email:query': ['/allEmail/list','/allEmail/latest'],
+	'all-email:delete': ['/allEmail/delete','/allEmail/batchDelete'],
 	'setting:query': ['/setting/query'],
-	'setting:set': ['/setting/set', '/setting/setBackground'],
-	'setting:clean': ['/setting/physicsDeleteAll'],
+	'setting:set': ['/setting/set', '/setting/setBackground','/setting/deleteBackground'],
 	'analysis:query': ['/analysis/echarts'],
 	'reg-key:add': ['/regKey/add'],
 	'reg-key:query': ['/regKey/list','/regKey/history'],
@@ -83,15 +91,21 @@ app.use('*', async (c, next) => {
 
 	const path = c.req.path;
 
-	if (path.startsWith('/test')) {
-		return await next();
-	}
-
 	const index = exclude.findIndex(item => {
 		return path.startsWith(item);
 	});
 
 	if (index > -1) {
+		return await next();
+	}
+
+	if (path.startsWith('/public')) {
+
+		const userPublicToken = await c.env.kv.get(KvConst.PUBLIC_KEY);
+		const publicToken = c.req.header(constant.TOKEN_HEADER);
+		if (publicToken !== userPublicToken) {
+			throw new BizError(t('publicTokenFail'), 401);
+		}
 		return await next();
 	}
 
@@ -150,7 +164,9 @@ app.use('*', async (c, next) => {
 });
 
 function permKeyToPaths(permKeys) {
+
 	const paths = [];
+
 	for (const key of permKeys) {
 		const routeList = premKey[key];
 		if (routeList && Array.isArray(routeList)) {

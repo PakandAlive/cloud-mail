@@ -22,12 +22,16 @@ import verifyRecordService from './verify-record-service';
 
 const loginService = {
 
-	async register(c, params) {
+	async register(c, params, oauth = false) {
 
 		const { email, password, token, code } = params;
 
-		const {regKey, register, registerVerify, regVerifyCount} = await settingService.query(c)
+		let { regKey, register, registerVerify, regVerifyCount, minEmailPrefix, emailPrefixFilter } = await settingService.query(c)
 
+		if (oauth) {
+			registerVerify = settingConst.registerVerify.CLOSE;
+			register = settingConst.register.OPEN;
+		}
 
 		if (register === settingConst.register.CLOSE) {
 			throw new BizError(t('regDisabled'));
@@ -37,16 +41,24 @@ const loginService = {
 			throw new BizError(t('notEmail'));
 		}
 
+		if (emailUtils.getName(email).length < minEmailPrefix) {
+			throw new BizError(t('minEmailPrefix', { msg: minEmailPrefix } ));
+		}
+
+		if (emailPrefixFilter.some(content => emailUtils.getName(email).includes(content)))  {
+			throw new BizError(t('banEmailPrefix'));
+		}
+
+		if (emailUtils.getName(email).length > 64) {
+			throw new BizError(t('emailLengthLimit'));
+		}
+
 		if (password.length > 30) {
 			throw new BizError(t('pwdLengthLimit'));
 		}
 
-		if (emailUtils.getName(email).length > 30) {
-			throw new BizError(t('emailLengthLimit'));
-		}
-
 		if (password.length < 6) {
-			throw new BizError(t('pwdMinLengthLimit'));
+			throw new BizError(t('pwdMinLength'));
 		}
 
 		if (!c.env.domain.includes(emailUtils.getDomain(email))) {
@@ -77,7 +89,6 @@ const loginService = {
 		if (accountRow) {
 			throw new BizError(t('isRegAccount'));
 		}
-
 
 		let defType = null
 
@@ -119,9 +130,9 @@ const loginService = {
 
 		const userId = await userService.insert(c, { email, regKeyId,password: hash, salt, type: type || defType });
 
-		await userService.updateUserInfo(c, userId, true);
-
 		await accountService.insert(c, { userId: userId, email, name: emailUtils.getName(email) });
+
+		await userService.updateUserInfo(c, userId, true);
 
 		if (regKey !== settingConst.regKey.CLOSE && type) {
 			await regKeyService.reduceCount(c, code, 1);
@@ -133,6 +144,10 @@ const loginService = {
 		}
 
 		return {regVerifyOpen}
+
+	},
+
+	async registerVerify() {
 
 	},
 
@@ -184,11 +199,11 @@ const loginService = {
 		return { type: regKeyRow.roleId, regKeyId: regKeyRow.regKeyId };
 	},
 
-	async login(c, params) {
+	async login(c, params, noVerifyPwd = false) {
 
 		const { email, password } = params;
 
-		if (!email || !password) {
+		if ((!email || !password) && !noVerifyPwd) {
 			throw new BizError(t('emailAndPwdEmpty'));
 		}
 
@@ -206,7 +221,7 @@ const loginService = {
 			throw new BizError(t('isBanUser'));
 		}
 
-		if (!await cryptoUtils.verifyPassword(password, userRow.salt, userRow.password)) {
+		if (!await cryptoUtils.verifyPassword(password, userRow.salt, userRow.password) && !noVerifyPwd) {
 			throw new BizError(t('IncorrectPwd'));
 		}
 
@@ -215,7 +230,7 @@ const loginService = {
 
 		let authInfo = await c.env.kv.get(KvConst.AUTH_INFO + userRow.userId, { type: 'json' });
 
-		if (authInfo) {
+		if (authInfo && (authInfo.user.email === userRow.email)) {
 
 			if (authInfo.tokens.length > 10) {
 				authInfo.tokens.shift();

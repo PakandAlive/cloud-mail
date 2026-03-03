@@ -18,10 +18,10 @@ http.interceptors.response.use((res) => {
 
         return new Promise((resolve, reject) => {
 
-            const showMsg = res.config.noMsg;
+            const noMsg = res.config.noMsg;
             const data = res.data
 
-            if (showMsg) {
+            if (noMsg) {
 
                 data.code === 200 ? resolve(data.data) : reject(data)
 
@@ -34,12 +34,23 @@ http.interceptors.response.use((res) => {
                     repeatNum: -4,
                 })
                 localStorage.removeItem('token')
-                router.push('/login')
+                router.replace('/login')
                 reject(data)
             } else if (data.code === 403) {
                 ElMessage({
                     message: data.message,
                     type: 'warning',
+                    plain: true,
+                    grouping: true,
+                    repeatNum: -4,
+                })
+                reject(data)
+
+            } else if (data.code === 502) {
+                ElMessage({
+                    dangerouslyUseHTMLString: true,
+                    message: data.message,
+                    type: 'error',
                     plain: true,
                     grouping: true,
                     repeatNum: -4,
@@ -60,9 +71,14 @@ http.interceptors.response.use((res) => {
     },
     (error) => {
 
-        const showMsg = error.config.noMsg;
+        if (error.status === 403) {
+            location.reload();
+            return;
+        }
 
-        if (showMsg) {
+        const noMsg = error.config.noMsg;
+
+        if (noMsg) {
             return Promise.reject(error)
         } else if (error.message.includes('Network Error')) {
             ElMessage({

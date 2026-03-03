@@ -21,10 +21,10 @@ const resources = {
 };
 
 i18next.init({
-	fallbackLng: 'en',
+	fallbackLng: 'zh',
 	resources,
 });
 
-export const t = (key) => i18next.t(key)
+export const t = (key, values) => i18next.t(key, values)
 
 export default i18next;

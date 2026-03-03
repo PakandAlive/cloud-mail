@@ -8,7 +8,6 @@ import kvConst from '../const/kv-const';
 import KvConst from '../const/kv-const';
 import cryptoUtils from '../utils/crypto-utils';
 import emailService from './email-service';
-import { UAParser } from 'ua-parser-js';
 import dayjs from 'dayjs';
 import permService from './perm-service';
 import roleService from './role-service';
@@ -16,12 +15,19 @@ import emailUtils from '../utils/email-utils';
 import saltHashUtils from '../utils/crypto-utils';
 import constant from '../const/constant';
 import { t } from '../i18n/i18n'
+import reqUtils from '../utils/req-utils';
+import {oauth} from "../entity/oauth";
+import oauthService from "./oauth-service";
 
 const userService = {
 
 	async loginUserInfo(c, userId) {
 
 		const userRow = await userService.selectById(c, userId);
+
+		if (!userRow) {
+			throw new BizError(t('authExpired'), 401);
+		}
 
 		const [account, roleRow, permKeys] = await Promise.all([
 			accountService.selectByEmailIncludeDel(c, userRow.email),
@@ -33,13 +39,15 @@ const userService = {
 		user.userId = userRow.userId;
 		user.sendCount = userRow.sendCount;
 		user.email = userRow.email;
-		user.accountId = account.accountId;
+		user.account = account;
 		user.name = account.name;
 		user.permKeys = permKeys;
-		user.role = roleRow
+		user.role = roleRow;
+		user.type = userRow.type;
 
 		if (c.env.admin === userRow.email) {
 			user.role = constant.ADMIN_ROLE
+			user.type = 0;
 		}
 
 		return user;
@@ -51,7 +59,7 @@ const userService = {
 		const { password } = params;
 
 		if (password < 6) {
-			throw new BizError(t('pwdMinLengthLimit'));
+			throw new BizError(t('pwdMinLength'));
 		}
 		const { salt, hash } = await cryptoUtils.hashPassword(password);
 		await orm(c).update(user).set({ password: hash, salt: salt }).where(eq(user.userId, userId)).run();
@@ -74,6 +82,10 @@ const userService = {
 		return orm(c).select().from(user).where(sql`${user.email} COLLATE NOCASE = ${email}`).get();
 	},
 
+	selectByIdIncludeDel(c, userId) {
+		return orm(c).select().from(user).where(eq(user.userId, userId)).get();
+	},
+
 	selectById(c, userId) {
 		return orm(c).select().from(user).where(
 			and(
@@ -87,25 +99,12 @@ const userService = {
 		await c.env.kv.delete(kvConst.AUTH_INFO + userId)
 	},
 
-
-	async physicsDeleteAll(c) {
-		const userIdsRow = await orm(c).select().from(user).where(eq(user.isDel, isDel.DELETE)).limit(99);
-		if (userIdsRow.length === 0) {
-			return;
-		}
-		const userIds = userIdsRow.map(item => item.userId);
-		await accountService.physicsDeleteByUserIds(c, userIds);
-		await orm(c).delete(user).where(inArray(user.userId, userIds)).run();
-		if (userIdsRow.length === 99) {
-			await this.physicsDeleteAll(c);
-		}
-	},
-
 	async physicsDelete(c, params) {
-		const { userId } = params
-		await accountService.physicsDeleteByUserIds(c, [userId])
-		await orm(c).delete(user).where(eq(user.userId, userId)).run();
-		await c.env.kv.delete(kvConst.AUTH_INFO + userId);
+		let { userIds } = params;
+		userIds = userIds.split(',').map(Number);
+		await accountService.physicsDeleteByUserIds(c, userIds);
+		await oauthService.deleteByUserIds(c, userIds);
+		await orm(c).delete(user).where(inArray(user.userId, userIds)).run();
 	},
 
 	async list(c, params) {
@@ -131,7 +130,7 @@ const userService = {
 
 
 		if (email) {
-			conditions.push(sql`${user.email} COLLATE NOCASE LIKE ${email + '%'}`);
+			conditions.push(sql`${user.email} COLLATE NOCASE LIKE ${'%'+ email + '%'}`);
 		}
 
 
@@ -140,7 +139,13 @@ const userService = {
 		}
 
 
-		const query = orm(c).select().from(user)
+		const query = orm(c).select({
+			...user,
+			username: oauth.username,
+			trustLevel: oauth.trustLevel,
+			avatar: oauth.avatar,
+			name: oauth.name
+		}).from(user).leftJoin(oauth, eq(oauth.userId, user.userId))
 			.where(and(...conditions));
 
 
@@ -216,49 +221,22 @@ const userService = {
 
 	async updateUserInfo(c, userId, recordCreateIp = false) {
 
-		const ua = c.req.header('user-agent') || '';
-		console.log(ua);
-		const parser = new UAParser(ua);
-		const { browser, device, os } = parser.getResult();
 
-		let browserInfo = null;
-		let osInfo = null;
 
-		if (browser.name) {
-			browserInfo = browser.name + ' ' + browser.version;
-		}
+		const activeIp = reqUtils.getIp(c);
 
-		if (os.name) {
-			osInfo = os.name + os.version;
-		}
-
-		let deviceInfo = 'Desktop';
-
-		const hasVendor = !!device?.vendor;
-		const hasModel = !!device?.model;
-
-		if (hasVendor || hasModel) {
-			const vendor = device.vendor || '';
-			const model = device.model || '';
-			const type = device.type || '';
-
-			const namePart = [vendor, model].filter(Boolean).join(' ');
-			const typePart = type ? ` (${type})` : '';
-			deviceInfo = (namePart + typePart).trim();
-		}
-
-		const userIp = c.req.header('cf-connecting-ip') || '';
+		const {os, browser, device} = reqUtils.getUserAgent(c);
 
 		const params = {
-			os: osInfo,
-			browser: browserInfo,
-			device: deviceInfo,
-			activeIp: userIp,
+			os,
+			browser,
+			device,
+			activeIp,
 			activeTime: dayjs().format('YYYY-MM-DD HH:mm:ss')
 		};
 
 		if (recordCreateIp) {
-			params.createIp = userIp;
+			params.createIp = activeIp;
 		}
 
 		await orm(c)
@@ -272,6 +250,7 @@ const userService = {
 
 		const { password, userId } = params;
 		await this.resetPassword(c, { password }, userId);
+		await c.env.kv.delete(KvConst.AUTH_INFO + userId);
 	},
 
 	async setStatus(c, params) {
@@ -332,7 +311,7 @@ const userService = {
 		}
 
 		if (password.length < 6) {
-			throw new BizError(t('pwdMinLengthLimit'));
+			throw new BizError(t('pwdMinLength'));
 		}
 
 		const accountRow = await accountService.selectByEmailIncludeDel(c, email);

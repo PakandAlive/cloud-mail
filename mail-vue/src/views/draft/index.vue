@@ -1,7 +1,6 @@
 <template>
   <emailScroll ref="scroll"
                :allow-star="false"
-               :cancel-success="cancelStar"
                :getEmailList="getEmailList"
                :emailDelete="emailDelete"
                :star-add="starAdd"
@@ -9,15 +8,16 @@
                @jump="jumpContent"
                actionLeft="6px"
                :show-account-icon="false"
+               :show-first-loading="false"
                :showStar="false"
                @delete-draft="deleteDraft"
                :type="'draft'"
   >
     <template #name="props">
-      <span class="send-email" >{{props.email.receiveEmail.join(',') || '('+$t('noRecipient')+')'}}</span>
+      <span class="send-email">{{ props.email.receiveEmail?.join(',') || '(' + $t('noRecipient') + ')' }}</span>
     </template>
-    <template #subject="props" >
-      {{props.email.subject || '('+$t('noSubject')+')'}}
+    <template #subject="props">
+      {{ props.email.subject || '(' + $t('noSubject') + ')' }}
     </template>
   </emailScroll>
 </template>
@@ -26,8 +26,7 @@
 import emailScroll from "@/components/email-scroll/index.vue"
 import {emailDelete} from "@/request/email.js";
 import {starAdd, starCancel} from "@/request/star.js";
-import {useEmailStore} from "@/store/email.js";
-import {defineOptions, onMounted, ref, watch, toRaw} from "vue";
+import {defineOptions, ref, watch, toRaw} from "vue";
 import {useUiStore} from "@/store/ui.js";
 import {userDraftStore} from "@/store/draft.js";
 import db from "@/db/db.js"
@@ -39,7 +38,6 @@ defineOptions({
 const draftStore = userDraftStore();
 const uiStore = useUiStore();
 const scroll = ref({})
-const emailStore = useEmailStore();
 
 watch(() => draftStore.setDraft, async () => {
 
@@ -53,19 +51,22 @@ watch(() => draftStore.setDraft, async () => {
   if (!draft.content && !draft.subject && !(draft.receiveEmail.length > 0)) {
     await db.value.draft.delete(draftId);
     await db.value.att.delete(draftId);
-    scroll.value.refreshList();
+    draftStore.refreshList++
     return;
   }
 
   await db.value.draft.update(draftId, draft);
   await db.value.att.update(draftId, {attachments: attachments});
-  scroll.value.refreshList();
-},{
+  draftStore.refreshList++
+}, {
   deep: true
 })
 
-watch(() => draftStore.refreshList,() => {
-  scroll.value.refreshList();
+watch(() => draftStore.refreshList, async () => {
+  const {list} = await getEmailList();
+    scroll.value.emailList.length = 0
+    scroll.value.handleList(list);
+    scroll.value.emailList.push(...list)
 })
 
 function getEmailList() {
@@ -78,7 +79,7 @@ function getEmailList() {
 
 async function deleteDraft(draftIds) {
   await db.value.draft.bulkDelete(draftIds);
-  scroll.value.refreshList();
+  draftStore.refreshList++
 }
 
 async function jumpContent(email) {
@@ -86,15 +87,6 @@ async function jumpContent(email) {
   email.attachments = att.attachments
   uiStore.writerRef.openDraft(email);
 }
-
-function cancelStar(email) {
-  emailStore.cancelStarEmailId = email.emailId
-  scroll.value.deleteEmail([email.emailId])
-}
-
-onMounted(() => {
-  emailStore.starScroll = scroll
-})
 
 </script>
 <style>

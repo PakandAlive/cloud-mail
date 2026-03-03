@@ -5,7 +5,6 @@ import {loginUserInfo} from "@/request/my.js";
 import {permsToRouter} from "@/perm/perm.js";
 import router from "@/router";
 import {websiteConfig} from "@/request/setting.js";
-import {cvtR2Url} from "@/utils/convert.js";
 import i18n from "@/i18n/index.js";
 
 export async function init() {
@@ -17,7 +16,9 @@ export async function init() {
 
     const token = localStorage.getItem('token');
     if (!settingStore.lang) {
-        settingStore.lang = navigator.language.split('-')[0]
+        let lang = navigator.language.split('-')[0]
+        lang = lang === 'zh' ? lang : 'en'
+        settingStore.lang = lang
     }
 
     i18n.global.locale.value = settingStore.lang
@@ -37,7 +38,8 @@ export async function init() {
         document.title = setting.title;
 
         if (user) {
-            accountStore.currentAccountId = user.accountId;
+            accountStore.currentAccountId = user.account.accountId;
+            accountStore.currentAccount = user.account;
             userStore.user = user;
 
             const routers = permsToRouter(user.permKeys);
@@ -53,24 +55,17 @@ export async function init() {
         document.title = setting.title;
     }
 
-    const loading = document.getElementById('loading-first');
+    removeLoading();
+}
 
-    if (!setting.background) {
-        loading.remove();
-        return;
+function removeLoading() {
+    if (window.innerWidth < 1025) {
+        document.documentElement.style.setProperty('--loading-hide-transition', 'none')
     }
-
-    const img = new Image();
-    img.src = cvtR2Url(setting.background);
-    img.onload = () => {
-        loading.remove();
-    };
-
-    img.onerror = () => {
-
-        console.warn('背景图片加载失败:', img.src);
-        loading.remove();
-
-    };
+    const doc = document.getElementById('loading-first');
+    doc.classList.add('loading-hide')
+    setTimeout(() => {
+        doc.remove()
+    },1000)
 }
 

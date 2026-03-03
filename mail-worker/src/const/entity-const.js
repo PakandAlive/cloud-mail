@@ -7,6 +7,13 @@ export const userConst = {
 	}
 }
 
+export const accountConst = {
+	allReceive: {
+		CLOSE: 0,
+		OPEN: 1
+	}
+}
+
 export const roleConst = {
 	isDefault: {
 		CLOSE: 0,
@@ -41,7 +48,12 @@ export const emailConst = {
 		COMPLAINED: 4,
 		DELAYED: 5,
 		SAVING: 6,
-		NOONE: 7
+		NOONE: 7,
+		FAILED: 8
+	},
+	unread: {
+		UNREAD: 0,
+		READ: 1
 	}
 }
 
@@ -107,6 +119,18 @@ export const settingConst = {
 	noRecipient: {
 		OPEN: 0,
 		CLOSE: 1,
+	},
+	kvStorage: {
+		OPEN: 0,
+		CLOSE: 1
+	},
+	forcePathStyle: {
+		OPEN: 0,
+		CLOSE: 1
+	},
+	authRefresh: {
+		OPEN: 1,
+		CLOSE: 0
 	}
 }
 

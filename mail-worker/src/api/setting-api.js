@@ -22,7 +22,8 @@ app.put('/setting/setBackground', async (c) => {
 	return c.json(result.ok(key));
 });
 
-app.delete('/setting/physicsDeleteAll', async (c) => {
-	await settingService.physicsDeleteAll(c);
+app.delete('/setting/deleteBackground', async (c) => {
+	await settingService.deleteBackground(c);
 	return c.json(result.ok());
 });
+
