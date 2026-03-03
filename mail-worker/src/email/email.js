@@ -11,6 +11,13 @@ import roleService from '../service/role-service';
 import userService from '../service/user-service';
 import telegramService from '../service/telegram-service';
 
+const parseCsv = (value) => {
+	if (typeof value !== 'string') {
+		return [];
+	}
+	return value.split(',').filter(item => item !== '');
+}
+
 export async function email(message, env, ctx) {
 
 	try {
@@ -134,7 +141,7 @@ export async function email(message, env, ctx) {
 
 		if (ruleType === settingConst.ruleType.RULE) {
 
-			const emails = ruleEmail.split(',');
+			const emails = parseCsv(ruleEmail);
 
 			if (!emails.includes(message.to)) {
 				return;
@@ -150,7 +157,7 @@ export async function email(message, env, ctx) {
 		//转发到其他邮箱
 		if (forwardStatus === settingConst.forwardStatus.OPEN && forwardEmail) {
 
-			const emails = forwardEmail.split(',');
+			const emails = parseCsv(forwardEmail);
 
 			await Promise.all(emails.map(async email => {
 

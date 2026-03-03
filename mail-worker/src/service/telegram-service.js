@@ -14,6 +14,13 @@ import emailHtmlTemplate from '../template/email-html';
 import verifyUtils from '../utils/verify-utils';
 import domainUtils from "../utils/domain-uitls";
 
+const parseCsv = (value) => {
+	if (typeof value !== 'string') {
+		return [];
+	}
+	return value.split(',').filter(item => item !== '');
+}
+
 const telegramService = {
 
 	async getEmailContent(c, params) {
@@ -47,7 +54,10 @@ const telegramService = {
 
 		const { tgBotToken, tgChatId, customDomain, tgMsgTo, tgMsgFrom, tgMsgText } = await settingService.query(c);
 
-		const tgChatIds = tgChatId.split(',');
+		const tgChatIds = parseCsv(tgChatId);
+		if (tgChatIds.length === 0) {
+			return;
+		}
 
 		const jwtToken = await jwtUtils.generateToken(c, { emailId: email.emailId })
 

@@ -11,6 +11,13 @@ import verifyUtils from '../utils/verify-utils';
 import { t } from '../i18n/i18n.js';
 import emailUtils from '../utils/email-utils';
 
+const parseCsv = (value) => {
+	if (typeof value !== 'string') {
+		return [];
+	}
+	return value.split(',').filter(item => item !== '');
+}
+
 const roleService = {
 
 	async add(c, params, userId) {
@@ -54,8 +61,8 @@ const roleService = {
 			.where(eq(perm.type, permConst.type.BUTTON)).all();
 
 		roleList.forEach(role => {
-			role.banEmail = role.banEmail.split(",").filter(item => item !== "");
-			role.availDomain = role.availDomain.split(",").filter(item => item !== "");
+			role.banEmail = parseCsv(role.banEmail);
+			role.availDomain = parseCsv(role.availDomain);
 			role.permIds = permList.filter(perm => perm.roleId === role.roleId).map(perm => perm.permId);
 		});
 
@@ -156,7 +163,7 @@ const roleService = {
 
 	hasAvailDomainPerm(availDomain, email) {
 
-		availDomain = availDomain.split(',').filter(item => item !== '');
+		availDomain = parseCsv(availDomain);
 
 		if (availDomain.length === 0) {
 			return true
@@ -188,7 +195,7 @@ const roleService = {
 
 	isBanEmail(banEmail, fromEmail) {
 
-		banEmail = banEmail.split(',').filter(item => item !== '');
+		banEmail = parseCsv(banEmail);
 
 		if (banEmail.includes('*')) {
 			return true;

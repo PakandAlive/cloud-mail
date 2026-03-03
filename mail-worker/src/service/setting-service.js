@@ -62,7 +62,9 @@ const settingService = {
 		setting.linuxdoCallbackUrl = c.env.linuxdo_callback_url;
 		setting.linuxdoSwitch = linuxdoSwitch;
 
-		setting.emailPrefixFilter = setting.emailPrefixFilter.split(",").filter(Boolean);
+		setting.emailPrefixFilter = typeof setting.emailPrefixFilter === 'string'
+			? setting.emailPrefixFilter.split(",").filter(Boolean)
+			: [];
 
 		c.set?.('setting', setting);
 		return setting;
