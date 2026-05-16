@@ -92,7 +92,7 @@
             <span style="font-size: 12px;color: #F56C6C" v-if="botJsError">{{ $t('verifyModuleFailed') }}</span>
           </div>
           <el-button class="btn" style="margin: 0" type="primary" @click="submitRegister" :loading="registerLoading"
-          >{{ $t('regBtn') }}
+          >{{ registerButtonText }}
           </el-button>
           <el-button v-if="settingStore.settings.linuxdoSwitch" class="btn" style="margin-top: 10px"  @click="linuxDoLogin">
             <el-avatar src="/image/linuxdo.webp" :size="18" style="margin-right: 10px" />LinuxDo
@@ -149,8 +149,7 @@
 <script setup>
 import router from "@/router";
 import {computed, nextTick, reactive, ref} from "vue";
-import {login} from "@/request/login.js";
-import {register} from "@/request/login.js";
+import {createLinuxdoCreditOrder, linuxdoCreditResult, login, register} from "@/request/login.js";
 import {websiteConfig} from "@/request/setting.js";
 import {isEmail} from "@/utils/verify-utils.js";
 import {useSettingStore} from "@/store/setting.js";
@@ -192,10 +191,12 @@ const registerForm = reactive({
   email: '',
   password: '',
   confirmPassword: '',
-  code: null
+  code: null,
+  linuxdoCreditOrder: ''
 })
 const domainList = settingStore.domainList;
 const registerLoading = ref(false)
+const linuxdoCreditPaidOrder = ref('')
 suffix.value = domainList[0]
 const verifyShow = ref(false)
 let verifyToken = ''
@@ -244,6 +245,8 @@ const loginDarkenFactor = computed(() => {
 })
 
 const hideLoginDomain = computed(() => settingStore.settings.loginDomain === 1)
+const linuxdoCreditEnabled = computed(() => settingStore.settings.linuxdoCreditStatus === 0)
+const registerButtonText = computed(() => linuxdoCreditEnabled.value && !linuxdoCreditPaidOrder.value ? t('linuxdoCreditPayAndRegister') : t('regBtn'))
 
 const background = computed(() => {
   const bg = settingStore.settings.background
@@ -279,7 +282,44 @@ function linuxDoLogin() {
       `https://connect.linux.do/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=openid+profile+email`
 }
 
+restoreLinuxdoCreditOrder();
 linuxDoGetUser();
+
+function restoreLinuxdoCreditOrder() {
+  const registerCache = localStorage.getItem('linuxdo_register_form')
+  if (registerCache) {
+    try {
+      const cache = JSON.parse(registerCache)
+      registerForm.email = cache.email || ''
+      registerForm.password = cache.password || ''
+      registerForm.confirmPassword = cache.confirmPassword || ''
+      registerForm.code = cache.code || null
+    } catch (e) {
+      localStorage.removeItem('linuxdo_register_form')
+    }
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  const outTradeNo = params.get('linuxdo_credit_order') || localStorage.getItem('linuxdo_credit_order')
+  if (!outTradeNo) return
+
+  localStorage.setItem('linuxdo_credit_order', outTradeNo)
+  show.value = 'register'
+  linuxdoCreditResult(outTradeNo).then(order => {
+    if (order.status === 'paid') {
+      linuxdoCreditPaidOrder.value = outTradeNo
+      registerForm.linuxdoCreditOrder = outTradeNo
+      if (!registerForm.email && order.email) {
+        registerForm.email = hideLoginDomain.value ? order.email : getEmailName(order.email)
+      }
+      ElMessage({
+        message: t('linuxdoCreditPaidMsg'),
+        type: 'success',
+        plain: true,
+      })
+    }
+  }).catch(() => {})
+}
 
 async function linuxDoGetUser() {
 
@@ -548,7 +588,24 @@ function submitRegister() {
     email,
     password: registerForm.password,
     token: verifyToken,
-    code: registerForm.code
+    code: registerForm.code,
+    linuxdoCreditOrder: linuxdoCreditPaidOrder.value || registerForm.linuxdoCreditOrder
+  }
+
+  if (linuxdoCreditEnabled.value && !form.linuxdoCreditOrder) {
+    localStorage.setItem('linuxdo_register_form', JSON.stringify({
+      email: registerForm.email,
+      password: registerForm.password,
+      confirmPassword: registerForm.confirmPassword,
+      code: registerForm.code
+    }))
+    createLinuxdoCreditOrder(email).then(({outTradeNo, payUrl}) => {
+      localStorage.setItem('linuxdo_credit_order', outTradeNo)
+      window.location.href = payUrl
+    }).catch(() => {
+      registerLoading.value = false
+    })
+    return
   }
 
   register(form).then(({regVerifyOpen}) => {
@@ -557,6 +614,10 @@ function submitRegister() {
     registerForm.password = ''
     registerForm.confirmPassword = ''
     registerForm.code = ''
+    registerForm.linuxdoCreditOrder = ''
+    linuxdoCreditPaidOrder.value = ''
+    localStorage.removeItem('linuxdo_credit_order')
+    localStorage.removeItem('linuxdo_register_form')
     registerLoading.value = false
     verifyToken = ''
     settingStore.settings.regVerifyOpen = regVerifyOpen

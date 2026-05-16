@@ -337,7 +337,13 @@ const en = {
     searchUser: 'Search by user',
     searchEmail: 'Search by Email',
     searchSender: 'Search by Sender',
-    userEmail: 'Email Address'
+    userEmail: 'Email Address',
+    linuxdoCreditRegisterPay: 'Paid Registration',
+    linuxdoCreditConfig: 'Payment Config',
+    linuxdoCreditMoney: 'Registration Credit',
+    linuxdoCreditName: 'Order Name',
+    linuxdoCreditPayAndRegister: 'Pay and Register',
+    linuxdoCreditPaidMsg: 'Payment completed. Continue registration'
 }
 
 export default en

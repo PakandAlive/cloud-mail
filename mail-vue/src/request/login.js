@@ -11,3 +11,11 @@ export function logout() {
 export function register(form) {
     return http.post('/register', form)
 }
+
+export function createLinuxdoCreditOrder(email) {
+    return http.post('/linuxdoCredit/order', {email})
+}
+
+export function linuxdoCreditResult(outTradeNo) {
+    return http.get('/linuxdoCredit/result', {params: {out_trade_no: outTradeNo}, noMsg: true})
+}

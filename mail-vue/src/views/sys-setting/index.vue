@@ -349,6 +349,28 @@
           </div>
 
           <div class="settings-card">
+            <div class="card-title">LinuxDO Credit</div>
+            <div class="card-content">
+              <div class="setting-item">
+                <div><span>{{ $t('linuxdoCreditRegisterPay') }}</span></div>
+                <div>
+                  <el-switch @change="change" :before-change="beforeChange" :active-value="0" :inactive-value="1"
+                             v-model="setting.linuxdoCreditStatus"/>
+                </div>
+              </div>
+              <div class="setting-item">
+                <div><span>{{ $t('linuxdoCreditConfig') }}</span></div>
+                <div class="forward">
+                  <span>{{ setting.linuxdoCreditMoney || '-' }}</span>
+                  <el-button class="opt-button" size="small" type="primary" @click="openLinuxdoCreditSetting">
+                    <Icon icon="fluent:settings-48-regular" width="18" height="18"/>
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-card">
             <div class="card-title">{{ $t('noticeTitle') }}</div>
             <div class="card-content">
               <div class="setting-item">
@@ -480,6 +502,19 @@
           <el-input type="text" placeholder="Site Key" v-model="turnstileForm.siteKey"/>
           <el-input type="text" style="margin-top: 15px" placeholder="Secret Key" v-model="turnstileForm.secretKey"/>
           <el-button type="primary" :loading="settingLoading" @click="saveTurnstileKey">{{ $t('save') }}</el-button>
+        </form>
+      </el-dialog>
+      <el-dialog v-model="linuxdoCreditShow" title="LinuxDO Credit" width="360" @closed="resetLinuxdoCreditForm">
+        <form>
+          <el-input class="dialog-input" type="text" placeholder="Base URL" v-model="linuxdoCreditForm.linuxdoCreditBaseUrl"/>
+          <el-input class="dialog-input" type="text" placeholder="PID" v-model="linuxdoCreditForm.linuxdoCreditPid"/>
+          <el-input class="dialog-input" type="text" :placeholder="setting.linuxdoCreditKey || 'Key'"
+                    v-model="linuxdoCreditForm.linuxdoCreditKey"/>
+          <el-input class="dialog-input" type="text" :placeholder="$t('linuxdoCreditMoney')"
+                    v-model="linuxdoCreditForm.linuxdoCreditMoney"/>
+          <el-input class="dialog-input" type="text" :placeholder="$t('linuxdoCreditName')"
+                    v-model="linuxdoCreditForm.linuxdoCreditName"/>
+          <el-button type="primary" :loading="settingLoading" @click="saveLinuxdoCredit">{{ $t('save') }}</el-button>
         </form>
       </el-dialog>
       <el-dialog
@@ -848,6 +883,7 @@ const blackFormShow = ref(false)
 const aiCodeFilterShow = ref(false)
 const r2DomainShow = ref(false)
 const turnstileShow = ref(false)
+const linuxdoCreditShow = ref(false)
 const tgSettingShow = ref(false)
 const noticePopupShow = ref(false)
 const thirdEmailShow = ref(false)
@@ -881,6 +917,14 @@ const resendTokenForm = reactive({
 const turnstileForm = reactive({
   siteKey: '',
   secretKey: ''
+})
+
+const linuxdoCreditForm = reactive({
+  linuxdoCreditBaseUrl: '',
+  linuxdoCreditPid: '',
+  linuxdoCreditKey: '',
+  linuxdoCreditMoney: '',
+  linuxdoCreditName: ''
 })
 
 const s3 = reactive({
@@ -967,6 +1011,7 @@ function getSettings() {
     resetEmailPrefix()
     resetBlackList()
     resetAiCodeFilter()
+    resetLinuxdoCreditForm()
     nextTick(() => {
       settingReady.value = true
     })
@@ -988,6 +1033,11 @@ function openRegVerifyCount() {
   regVerifyCountShow.value = true
 }
 
+function openLinuxdoCreditSetting() {
+  resetLinuxdoCreditForm()
+  linuxdoCreditShow.value = true
+}
+
 function resetAddS3Form() {
   s3.bucket = setting.value.bucket
   s3.endpoint = setting.value.endpoint
@@ -995,6 +1045,14 @@ function resetAddS3Form() {
   s3.s3AccessKey = ''
   s3.s3SecretKey = ''
   s3.forcePathStyle = setting.value.forcePathStyle
+}
+
+function resetLinuxdoCreditForm() {
+  linuxdoCreditForm.linuxdoCreditBaseUrl = setting.value.linuxdoCreditBaseUrl || 'https://credit.linux.do/epay'
+  linuxdoCreditForm.linuxdoCreditPid = setting.value.linuxdoCreditPid || ''
+  linuxdoCreditForm.linuxdoCreditKey = ''
+  linuxdoCreditForm.linuxdoCreditMoney = setting.value.linuxdoCreditMoney || ''
+  linuxdoCreditForm.linuxdoCreditName = setting.value.linuxdoCreditName || ''
 }
 
 const resendList = computed(() => {
@@ -1366,6 +1424,19 @@ function saveTurnstileKey() {
   editSetting(settingForm)
 }
 
+function saveLinuxdoCredit() {
+  const settingForm = {
+    linuxdoCreditBaseUrl: linuxdoCreditForm.linuxdoCreditBaseUrl,
+    linuxdoCreditPid: linuxdoCreditForm.linuxdoCreditPid,
+    linuxdoCreditMoney: linuxdoCreditForm.linuxdoCreditMoney,
+    linuxdoCreditName: linuxdoCreditForm.linuxdoCreditName
+  }
+  if (linuxdoCreditForm.linuxdoCreditKey) {
+    settingForm.linuxdoCreditKey = linuxdoCreditForm.linuxdoCreditKey
+  }
+  editSetting(settingForm)
+}
+
 async function saveBackground() {
 
   let image = ''
@@ -1448,6 +1519,9 @@ function backupSetting() {
   delete settingForm.resendTokens
   delete settingForm.siteKey
   delete settingForm.secretKey
+  delete settingForm.s3AccessKey
+  delete settingForm.s3SecretKey
+  delete settingForm.linuxdoCreditKey
   backup = JSON.stringify(setting.value)
 }
 
@@ -1468,6 +1542,7 @@ function change(e) {
   delete settingForm.secretKey
   delete settingForm.s3AccessKey
   delete settingForm.s3SecretKey
+  delete settingForm.linuxdoCreditKey
   delete settingForm.resendTokens
   editSetting(settingForm, false)
 }
@@ -1515,6 +1590,7 @@ function editSetting(settingForm, refreshStatus = true) {
     forwardRulesShow.value = false
     addVerifyCountShow.value = false
     regVerifyCountShow.value = false
+    linuxdoCreditShow.value = false
     noticePopupShow.value = false
     addS3Show.value = false
     emailPrefixShow.value = false

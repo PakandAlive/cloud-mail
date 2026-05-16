@@ -52,6 +52,12 @@ export const setting = sqliteTable('setting', {
 	blackContent: text('black_content').default('').notNull(),
 	blackFrom: text('black_from').default('').notNull(),
 	aiCode: integer('ai_code').default(1).notNull(),
-	aiCodeFilter: text('ai_code_filter').default('').notNull()
+	aiCodeFilter: text('ai_code_filter').default('').notNull(),
+	linuxdoCreditStatus: integer('linuxdo_credit_status').default(1).notNull(),
+	linuxdoCreditBaseUrl: text('linuxdo_credit_base_url').default('https://credit.linux.do/epay').notNull(),
+	linuxdoCreditPid: text('linuxdo_credit_pid').default('').notNull(),
+	linuxdoCreditKey: text('linuxdo_credit_key').default('').notNull(),
+	linuxdoCreditMoney: text('linuxdo_credit_money').default('').notNull(),
+	linuxdoCreditName: text('linuxdo_credit_name').default('邮箱注册').notNull()
 });
 export default setting

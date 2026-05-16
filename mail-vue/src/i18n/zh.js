@@ -337,6 +337,12 @@ const zh = {
     searchUser: '搜索用户',
     searchEmail: '搜索邮箱',
     searchSender: '搜索发件人',
-    userEmail: '用户邮箱'
+    userEmail: '用户邮箱',
+    linuxdoCreditRegisterPay: '注册付费',
+    linuxdoCreditConfig: '支付配置',
+    linuxdoCreditMoney: '注册所需 Credit',
+    linuxdoCreditName: '订单名称',
+    linuxdoCreditPayAndRegister: '支付并注册',
+    linuxdoCreditPaidMsg: '支付已完成，请继续注册'
 }
 export default zh

@@ -30,8 +30,48 @@ const dbInit = {
 		await this.v2_9DB(c);
 		await this.v3_0DB(c);
 		await this.v3_1DB(c);
+		await this.v3_2DB(c);
 		await settingService.refresh(c);
 		return c.text('success');
+	},
+
+	async v3_2DB(c) {
+		try {
+			await c.env.db.prepare(`
+				CREATE TABLE IF NOT EXISTS linuxdo_credit_order (
+					out_trade_no TEXT PRIMARY KEY,
+					email TEXT NOT NULL,
+					money TEXT NOT NULL,
+					name TEXT NOT NULL,
+					status TEXT NOT NULL DEFAULT 'pending',
+					trade_no TEXT NOT NULL DEFAULT '',
+					trade_status TEXT NOT NULL DEFAULT '',
+					create_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+					paid_time DATETIME,
+					used_time DATETIME,
+					is_del INTEGER NOT NULL DEFAULT 0
+				)
+			`).run();
+		} catch (e) {
+			console.warn(`跳过表：${e.message}`);
+		}
+
+		const fields = [
+			`ALTER TABLE setting ADD COLUMN linuxdo_credit_status INTEGER NOT NULL DEFAULT 1;`,
+			`ALTER TABLE setting ADD COLUMN linuxdo_credit_base_url TEXT NOT NULL DEFAULT 'https://credit.linux.do/epay';`,
+			`ALTER TABLE setting ADD COLUMN linuxdo_credit_pid TEXT NOT NULL DEFAULT '';`,
+			`ALTER TABLE setting ADD COLUMN linuxdo_credit_key TEXT NOT NULL DEFAULT '';`,
+			`ALTER TABLE setting ADD COLUMN linuxdo_credit_money TEXT NOT NULL DEFAULT '';`,
+			`ALTER TABLE setting ADD COLUMN linuxdo_credit_name TEXT NOT NULL DEFAULT '邮箱注册';`
+		];
+
+		for (const sql of fields) {
+			try {
+				await c.env.db.prepare(sql).run();
+			} catch (e) {
+				console.warn(`跳过字段：${e.message}`);
+			}
+		}
 	},
 
 	async v3_1DB(c) {

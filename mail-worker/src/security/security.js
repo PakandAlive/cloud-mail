@@ -18,6 +18,7 @@ const exclude = [
 	'/public/genToken',
 	'/telegram',
 	'/test',
+	'/linuxdoCredit',
 	'/oauth'
 ];
 

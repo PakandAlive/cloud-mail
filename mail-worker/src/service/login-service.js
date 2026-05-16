@@ -19,12 +19,13 @@ import dayjs from 'dayjs';
 import { toUtc } from '../utils/date-uitil';
 import { t } from '../i18n/i18n.js';
 import verifyRecordService from './verify-record-service';
+import linuxdoCreditService from './linuxdo-credit-service';
 
 const loginService = {
 
 	async register(c, params, oauth = false) {
 
-		const { email, password, token, code } = params;
+		const { email, password, token, code, linuxdoCreditOrder } = params;
 
 		let { regKey, register, registerVerify, regVerifyCount, minEmailPrefix, emailPrefixFilter } = await settingService.query(c)
 
@@ -126,11 +127,19 @@ const loginService = {
 			}
 		}
 
+		if (!oauth) {
+			await linuxdoCreditService.ensureRegisterOrder(c, email, linuxdoCreditOrder);
+		}
+
 		const { salt, hash } = await saltHashUtils.hashPassword(password);
 
 		const userId = await userService.insert(c, { email, regKeyId,password: hash, salt, type: type || defType });
 
 		await accountService.insert(c, { userId: userId, email, name: emailUtils.getName(email) });
+
+		if (!oauth) {
+			await linuxdoCreditService.consumeRegisterOrder(c, email, linuxdoCreditOrder);
+		}
 
 		await userService.updateUserInfo(c, userId, true);
 

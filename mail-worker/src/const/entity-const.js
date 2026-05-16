@@ -132,9 +132,22 @@ export const settingConst = {
 		OPEN: 0,
 		CLOSE: 1
 	},
+	linuxdoCredit: {
+		OPEN: 0,
+		CLOSE: 1
+	},
 	authRefresh: {
 		OPEN: 1,
 		CLOSE: 0
+	}
+}
+
+export const linuxdoCreditOrderConst = {
+	status: {
+		PENDING: 'pending',
+		PAID: 'paid',
+		USED: 'used',
+		FAILED: 'failed'
 	}
 }
 
