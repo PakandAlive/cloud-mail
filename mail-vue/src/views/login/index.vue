@@ -1,5 +1,5 @@
 <template>
-  <div id="login-box" :style=" background ? 'background: var(--el-bg-color)' : ''" v-loading="oauthLoading" element-loading-text="登录中...">
+  <div id="login-box" :style=" background ? 'background: var(--el-bg-color)' : ''" v-loading="oauthLoading || linuxdoCreditAutoLoginLoading" element-loading-text="登录中...">
     <div id="background-wrap" v-if="!settingStore.settings.background">
       <div class="x1 cloud"></div>
       <div class="x2 cloud"></div>
@@ -191,12 +191,11 @@ const registerForm = reactive({
   email: '',
   password: '',
   confirmPassword: '',
-  code: null,
-  linuxdoCreditOrder: ''
+  code: null
 })
 const domainList = settingStore.domainList;
 const registerLoading = ref(false)
-const linuxdoCreditPaidOrder = ref('')
+const linuxdoCreditAutoLoginLoading = ref(false)
 suffix.value = domainList[0]
 const verifyShow = ref(false)
 let verifyToken = ''
@@ -246,7 +245,7 @@ const loginDarkenFactor = computed(() => {
 
 const hideLoginDomain = computed(() => settingStore.settings.loginDomain === 1)
 const linuxdoCreditEnabled = computed(() => settingStore.settings.linuxdoCreditStatus === 0)
-const registerButtonText = computed(() => linuxdoCreditEnabled.value && !linuxdoCreditPaidOrder.value ? t('linuxdoCreditPayAndRegister') : t('regBtn'))
+const registerButtonText = computed(() => linuxdoCreditEnabled.value ? t('linuxdoCreditPayAndRegister') : t('regBtn'))
 
 const background = computed(() => {
   const bg = settingStore.settings.background
@@ -286,39 +285,27 @@ restoreLinuxdoCreditOrder();
 linuxDoGetUser();
 
 function restoreLinuxdoCreditOrder() {
-  const registerCache = localStorage.getItem('linuxdo_register_form')
-  if (registerCache) {
-    try {
-      const cache = JSON.parse(registerCache)
-      registerForm.email = cache.email || ''
-      registerForm.password = cache.password || ''
-      registerForm.confirmPassword = cache.confirmPassword || ''
-      registerForm.code = cache.code || null
-    } catch (e) {
-      localStorage.removeItem('linuxdo_register_form')
-    }
-  }
-
   const params = new URLSearchParams(window.location.search)
   const outTradeNo = params.get('linuxdo_credit_order') || localStorage.getItem('linuxdo_credit_order')
   if (!outTradeNo) return
 
   localStorage.setItem('linuxdo_credit_order', outTradeNo)
   show.value = 'register'
+  linuxdoCreditAutoLoginLoading.value = true
   linuxdoCreditResult(outTradeNo).then(order => {
-    if (order.status === 'paid') {
-      linuxdoCreditPaidOrder.value = outTradeNo
-      registerForm.linuxdoCreditOrder = outTradeNo
-      if (!registerForm.email && order.email) {
-        registerForm.email = hideLoginDomain.value ? order.email : getEmailName(order.email)
-      }
+    if (order.token) {
+      localStorage.removeItem('linuxdo_credit_order')
       ElMessage({
         message: t('linuxdoCreditPaidMsg'),
         type: 'success',
         plain: true,
       })
+      saveToken(order.token)
+      return
     }
-  }).catch(() => {})
+  }).finally(() => {
+    linuxdoCreditAutoLoginLoading.value = false
+  })
 }
 
 async function linuxDoGetUser() {
@@ -588,18 +575,11 @@ function submitRegister() {
     email,
     password: registerForm.password,
     token: verifyToken,
-    code: registerForm.code,
-    linuxdoCreditOrder: linuxdoCreditPaidOrder.value || registerForm.linuxdoCreditOrder
+    code: registerForm.code
   }
 
-  if (linuxdoCreditEnabled.value && !form.linuxdoCreditOrder) {
-    localStorage.setItem('linuxdo_register_form', JSON.stringify({
-      email: registerForm.email,
-      password: registerForm.password,
-      confirmPassword: registerForm.confirmPassword,
-      code: registerForm.code
-    }))
-    createLinuxdoCreditOrder(email).then(({outTradeNo, payUrl}) => {
+  if (linuxdoCreditEnabled.value) {
+    createLinuxdoCreditOrder(form).then(({outTradeNo, payUrl}) => {
       localStorage.setItem('linuxdo_credit_order', outTradeNo)
       window.location.href = payUrl
     }).catch(() => {
@@ -614,10 +594,7 @@ function submitRegister() {
     registerForm.password = ''
     registerForm.confirmPassword = ''
     registerForm.code = ''
-    registerForm.linuxdoCreditOrder = ''
-    linuxdoCreditPaidOrder.value = ''
     localStorage.removeItem('linuxdo_credit_order')
-    localStorage.removeItem('linuxdo_register_form')
     registerLoading.value = false
     verifyToken = ''
     settingStore.settings.regVerifyOpen = regVerifyOpen

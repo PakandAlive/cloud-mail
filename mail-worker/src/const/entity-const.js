@@ -151,6 +151,13 @@ export const linuxdoCreditOrderConst = {
 	}
 }
 
+export const linuxdoCreditPendingConst = {
+	status: {
+		PENDING: 'pending',
+		REGISTERED: 'registered'
+	}
+}
+
 export const verifyRecordType = {
 	REG: 0,
 	ADD: 1,

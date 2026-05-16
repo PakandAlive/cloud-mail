@@ -52,6 +52,24 @@ const dbInit = {
 					is_del INTEGER NOT NULL DEFAULT 0
 				)
 			`).run();
+			await c.env.db.prepare(`
+				CREATE TABLE IF NOT EXISTS linuxdo_credit_pending_register (
+					out_trade_no TEXT PRIMARY KEY,
+					email TEXT NOT NULL,
+					password TEXT NOT NULL,
+					salt TEXT NOT NULL,
+					reg_key_code TEXT NOT NULL DEFAULT '',
+					reg_key_id INTEGER NOT NULL DEFAULT 0,
+					role_id INTEGER NOT NULL,
+					user_id INTEGER NOT NULL DEFAULT 0,
+					login_token TEXT NOT NULL DEFAULT '',
+					login_token_used INTEGER NOT NULL DEFAULT 0,
+					status TEXT NOT NULL DEFAULT 'pending',
+					create_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+					registered_time DATETIME,
+					is_del INTEGER NOT NULL DEFAULT 0
+				)
+			`).run();
 		} catch (e) {
 			console.warn(`跳过表：${e.message}`);
 		}

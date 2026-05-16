@@ -8,7 +8,7 @@ app.post('/linuxdoCredit/order', async (c) => {
 });
 
 app.get('/linuxdoCredit/result', async (c) => {
-	const order = await linuxdoCreditService.getOrder(c, c.req.query('out_trade_no'));
+	const order = await linuxdoCreditService.result(c, c.req.query('out_trade_no'));
 	return c.json(result.ok(order));
 });
 

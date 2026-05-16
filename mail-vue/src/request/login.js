@@ -12,8 +12,8 @@ export function register(form) {
     return http.post('/register', form)
 }
 
-export function createLinuxdoCreditOrder(email) {
-    return http.post('/linuxdoCredit/order', {email})
+export function createLinuxdoCreditOrder(form) {
+    return http.post('/linuxdoCredit/order', form)
 }
 
 export function linuxdoCreditResult(outTradeNo) {
