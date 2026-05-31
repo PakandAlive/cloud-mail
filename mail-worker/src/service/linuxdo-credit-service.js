@@ -58,6 +58,10 @@ async function verifyEpayMd5(params, secret) {
 	return provided === sign;
 }
 
+function isPaidEpayOrder(order) {
+	return Number(order.code) === 1 && Number(order.status) === 1;
+}
+
 function requireConfig(setting) {
 	if (setting.linuxdoCreditStatus !== settingConst.linuxdoCredit.OPEN) {
 		throw new BizError('LinuxDO Credit 注册支付未开启');
@@ -292,14 +296,19 @@ const linuxdoCreditService = {
 
 	async result(c, outTradeNo) {
 		const order = await this.getOrder(c, outTradeNo);
-		const pending = await getPending(c, outTradeNo);
+		let pending = await getPending(c, outTradeNo);
 
 		if (!pending) {
 			return order;
 		}
 
+		if (pending.status !== linuxdoCreditPendingConst.status.REGISTERED && order.status === linuxdoCreditOrderConst.status.PENDING) {
+			await this.syncPaidOrder(c, outTradeNo);
+			pending = await getPending(c, outTradeNo);
+		}
+
 		if (pending.status !== linuxdoCreditPendingConst.status.REGISTERED || pending.loginTokenUsed === 1 || !pending.loginToken) {
-			return order;
+			return await this.getOrder(c, outTradeNo);
 		}
 
 		await orm(c).update(linuxdoCreditPendingRegister).set({
@@ -307,10 +316,56 @@ const linuxdoCreditService = {
 		}).where(eq(linuxdoCreditPendingRegister.outTradeNo, outTradeNo)).run();
 
 		return {
-			...order,
+			...await this.getOrder(c, outTradeNo),
 			token: pending.loginToken,
 			registered: true
 		};
+	},
+
+	async syncPaidOrder(c, outTradeNo) {
+		const setting = await settingService.query(c);
+		requireConfig(setting);
+
+		const epayOrder = await this.queryEpayOrder(setting, outTradeNo);
+		if (!isPaidEpayOrder(epayOrder)) {
+			return;
+		}
+
+		const order = await this.getOrder(c, outTradeNo);
+		if (
+			epayOrder.out_trade_no !== outTradeNo ||
+			epayOrder.pid !== setting.linuxdoCreditPid ||
+			epayOrder.type !== 'epay' ||
+			`${epayOrder.money}` !== `${order.money}`
+		) {
+			throw new BizError('LinuxDO Credit 订单查询结果不匹配');
+		}
+
+		await orm(c).update(linuxdoCreditOrder).set({
+			status: linuxdoCreditOrderConst.status.PAID,
+			tradeNo: epayOrder.trade_no || '',
+			tradeStatus: 'TRADE_SUCCESS',
+			paidTime: new Date().toISOString()
+		}).where(eq(linuxdoCreditOrder.outTradeNo, outTradeNo)).run();
+
+		await this.completeRegister(c, outTradeNo);
+	},
+
+	async queryEpayOrder(setting, outTradeNo) {
+		const baseUrl = normalizeBaseUrl(setting.linuxdoCreditBaseUrl);
+		const query = new URLSearchParams({
+			act: 'order',
+			pid: setting.linuxdoCreditPid,
+			key: setting.linuxdoCreditKey,
+			out_trade_no: outTradeNo
+		});
+
+		const res = await fetch(`${baseUrl}/api.php?${query.toString()}`);
+		if (!res.ok) {
+			throw new BizError('LinuxDO Credit 订单查询失败');
+		}
+
+		return await res.json();
 	},
 
 	async notify(c) {
