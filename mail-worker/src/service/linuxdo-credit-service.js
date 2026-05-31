@@ -62,6 +62,13 @@ function isPaidEpayOrder(order) {
 	return Number(order.code) === 1 && Number(order.status) === 1;
 }
 
+function sameMoney(left, right) {
+	const leftMoney = Number(left);
+	const rightMoney = Number(right);
+	if (!Number.isFinite(leftMoney) || !Number.isFinite(rightMoney)) return false;
+	return leftMoney.toFixed(2) === rightMoney.toFixed(2);
+}
+
 function requireConfig(setting) {
 	if (setting.linuxdoCreditStatus !== settingConst.linuxdoCredit.OPEN) {
 		throw new BizError('LinuxDO Credit 注册支付未开启');
@@ -336,7 +343,7 @@ const linuxdoCreditService = {
 			epayOrder.out_trade_no !== outTradeNo ||
 			epayOrder.pid !== setting.linuxdoCreditPid ||
 			epayOrder.type !== 'epay' ||
-			`${epayOrder.money}` !== `${order.money}`
+			!sameMoney(epayOrder.money, order.money)
 		) {
 			throw new BizError('LinuxDO Credit 订单查询结果不匹配');
 		}
