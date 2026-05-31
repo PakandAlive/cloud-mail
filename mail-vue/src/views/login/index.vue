@@ -148,7 +148,7 @@
 
 <script setup>
 import router from "@/router";
-import {computed, nextTick, reactive, ref} from "vue";
+import {computed, nextTick, onUnmounted, reactive, ref} from "vue";
 import {createLinuxdoCreditOrder, linuxdoCreditResult, login, register} from "@/request/login.js";
 import {websiteConfig} from "@/request/setting.js";
 import {isEmail} from "@/utils/verify-utils.js";
@@ -281,6 +281,21 @@ function linuxDoLogin() {
       `https://connect.linux.do/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=openid+profile+email`
 }
 
+let linuxdoCreditResultTimer = null
+let linuxdoCreditResultRetry = 0
+const linuxdoCreditResultMaxRetry = 30
+const linuxdoCreditResultDelay = 2000
+
+onUnmounted(() => {
+  clearLinuxdoCreditResultTimer()
+})
+
+function clearLinuxdoCreditResultTimer() {
+  if (!linuxdoCreditResultTimer) return
+  clearTimeout(linuxdoCreditResultTimer)
+  linuxdoCreditResultTimer = null
+}
+
 restoreLinuxdoCreditOrder();
 linuxDoGetUser();
 
@@ -292,20 +307,44 @@ function restoreLinuxdoCreditOrder() {
   localStorage.setItem('linuxdo_credit_order', outTradeNo)
   show.value = 'register'
   linuxdoCreditAutoLoginLoading.value = true
-  linuxdoCreditResult(outTradeNo).then(order => {
+  linuxdoCreditResultRetry = 0
+  clearLinuxdoCreditResultTimer()
+  pollLinuxdoCreditResult(outTradeNo)
+}
+
+async function pollLinuxdoCreditResult(outTradeNo) {
+  try {
+    const order = await linuxdoCreditResult(outTradeNo)
     if (order.token) {
+      clearLinuxdoCreditResultTimer()
       localStorage.removeItem('linuxdo_credit_order')
       ElMessage({
         message: t('linuxdoCreditPaidMsg'),
         type: 'success',
         plain: true,
       })
-      saveToken(order.token)
+      await saveToken(order.token)
       return
     }
-  }).finally(() => {
+  } catch (e) {
+    console.warn('LinuxDO Credit 注册结果查询失败', e)
+  }
+
+  linuxdoCreditResultRetry++
+  if (linuxdoCreditResultRetry >= linuxdoCreditResultMaxRetry) {
     linuxdoCreditAutoLoginLoading.value = false
-  })
+    ElMessage({
+      message: t('linuxdoCreditWaitMsg'),
+      type: 'warning',
+      plain: true,
+    })
+    return
+  }
+
+  linuxdoCreditResultTimer = setTimeout(() => {
+    linuxdoCreditResultTimer = null
+    pollLinuxdoCreditResult(outTradeNo)
+  }, linuxdoCreditResultDelay)
 }
 
 async function linuxDoGetUser() {

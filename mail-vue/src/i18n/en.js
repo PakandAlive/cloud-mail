@@ -343,7 +343,8 @@ const en = {
     linuxdoCreditMoney: 'Registration Credit',
     linuxdoCreditName: 'Order Name',
     linuxdoCreditPayAndRegister: 'Pay and Register',
-    linuxdoCreditPaidMsg: 'Payment completed. Signing in'
+    linuxdoCreditPaidMsg: 'Payment completed. Signing in',
+    linuxdoCreditWaitMsg: 'Payment completed. The account is still being created. Refresh the login page later to sign in automatically'
 }
 
 export default en

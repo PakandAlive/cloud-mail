@@ -343,6 +343,7 @@ const zh = {
     linuxdoCreditMoney: '注册所需 Credit',
     linuxdoCreditName: '订单名称',
     linuxdoCreditPayAndRegister: '支付并注册',
-    linuxdoCreditPaidMsg: '支付成功，正在登录'
+    linuxdoCreditPaidMsg: '支付成功，正在登录',
+    linuxdoCreditWaitMsg: '支付已完成，系统仍在创建账号，请稍后刷新登录页自动登录'
 }
 export default zh
